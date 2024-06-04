@@ -1,5 +1,5 @@
 # SoundSeeker
-A VR auditory training game.
+A VR auditory training game that targets speech in noise perception.
 
 # Run Instructions
 For HTC Vive Pro 2, make sure that both Steam and SteamVR are running. HTC Vive Pro requires VivePort to run. 
