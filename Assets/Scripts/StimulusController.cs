@@ -1,8 +1,6 @@
-using OscCore;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Audio;
@@ -19,8 +17,6 @@ public class StimulusController
     private List<AudioClip> distractorAudioClips;
 
     private AudioMixer mixer;
-
-    private OscClient Client;
 
 
     private float maxDistance = 12;
@@ -89,7 +85,6 @@ public class StimulusController
         SetScale();
         SetModePrefixAndParam();
         SetChannelLevel(2, -5);
-        Client = new OscClient("127.0.0.1", 7400);
 
     }
 
@@ -102,41 +97,6 @@ public class StimulusController
         maxDistance = (float)Math.Sqrt(2 * Math.Pow(gamePlaneSize, 2));
     }
 
-    //Set the OSC string dependent on current modulation mode
-    private void SetModePrefixAndParam()
-    {
-        switch (mode)
-        {
-            case Mode.Pitch:
-                {
-                    this.modePrefix = "/frequency/";
-                    this.minParameter = minFrequency;
-                    this.maxParameter = maxFrequency;
-                    break;
-                }
-            case Mode.AMRate:
-                {
-                    this.modePrefix = "/modrate/";
-                    this.minParameter = minAMRate;
-                    this.maxParameter = maxAMRate;
-                    break;
-                }
-            case Mode.Level:
-                {
-                    this.modePrefix = "/level/";
-                    this.minParameter = minLevel;
-                    this.maxParameter = maxLevel;
-                    break;
-                }
-            case Mode.SingleTarget:
-                {
-                    AdjustSnrBoundaries();
-                    break;
-                }
-            default: break;
-
-        }
-    }
 
     public void SendStimulusData()
     {
@@ -146,12 +106,6 @@ public class StimulusController
         {
             SetChannelLevel(1, param);
         }
-        float targetdb, distdb;
-        mixer.GetFloat("TargetVol", out targetdb);
-        mixer.GetFloat("DistractorVol", out distdb);
-        //Debug.Log(GetSNR(targetdb, distdb));
-        string paramStr = param.ToString(CultureInfo.InvariantCulture.NumberFormat);
-        Client.Send(modePrefix + paramStr);
     }
 
     private void AdjustSnrBoundaries()

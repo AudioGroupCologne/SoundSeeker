@@ -1,15 +1,14 @@
 using API_3DTI;
-using OpenCover.Framework.Model;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.Audio;
 
 
 public class SetupManager : MonoBehaviour
 {
-    public short participant_id;
-    public string participant_name;
+    private short participant_id;
     public float initialDistractorDb;
     public AudioMixer mixer;
     public AudioSource target;
@@ -24,14 +23,15 @@ public class SetupManager : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        participant_id = ParticipantSession.ParticipantId;
         currentTargetDb = initialDistractorDb;
         SetChannelLevel(1, currentTargetDb);
         SetChannelLevel(2, initialDistractorDb);
 
 
-        SettingsHandler.ConfiguarationPath = Application.persistentDataPath + "\\Configuration\\" + participant_id + "_configuration.json";
-        PlayerSettings settings = new PlayerSettings(participant_id, participant_name, 0, 0, 0, initialDistractorDb);
-        if (UnityEngine.Windows.File.Exists(SettingsHandler.ConfiguarationPath))
+        SettingsHandler.ConfigurationPath = Path.Combine(PathConfig.Instance.dataRoot, "Configuration", participant_id + "_configuration.json");
+        PlayerSettings settings = new PlayerSettings(participant_id, participant_id.ToString(), 0, 0, 0, initialDistractorDb);
+        if (File.Exists(SettingsHandler.ConfigurationPath))  
         {
             Debug.LogError("Config file already exists. Make sure that participant ID has not been used yet.");
             throw new System.Exception("Config file already exists. Make sure that participant ID has not been used yet.");
@@ -45,15 +45,16 @@ public class SetupManager : MonoBehaviour
     {
         if (Input.GetKeyDown("1"))
         {
-            if((currentTargetDb + dbStep) < initialDistractorDb)
+            if ((currentTargetDb + dbStep) < initialDistractorDb)
             {
                 SetChannelLevel(1, currentTargetDb + dbStep);
                 currentTargetDb += dbStep;
                 Debug.Log("Target DB increased by " + dbStep + "dB. SNR at " + (currentTargetDb - initialDistractorDb) + "dB");
-            } else
+            }
+            else
             {
                 SetChannelLevel(1, initialDistractorDb);
-                currentTargetDb  = initialDistractorDb;
+                currentTargetDb = initialDistractorDb;
                 Debug.Log("Target maxed out. SNR at " + (currentTargetDb - initialDistractorDb) + "dB");
 
             }
@@ -65,7 +66,7 @@ public class SetupManager : MonoBehaviour
             Debug.Log("Target DB lowered by " + dbStep + "dB. SNR at " + (currentTargetDb - initialDistractorDb) + "dB");
 
         }
-        
+
         else if (Input.GetKeyDown(KeyCode.Space))
         {
             Debug.Log("Testing concluded. Final SNR limit: " + (currentTargetDb - initialDistractorDb) + "dB\nInitial distractor level: " + initialDistractorDb + "dB");

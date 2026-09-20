@@ -4,7 +4,6 @@ using UnityEngine;
 using System;
 using System.IO;
 using System.Text;
-using System.IO.Pipes;
 
 public sealed class ResultsHandler
 {
@@ -36,46 +35,30 @@ public sealed class ResultsHandler
 
     public static void WriteResultsToFile()
     {
-        FileStream fileStream = null;
-        if (!Directory.Exists(Application.persistentDataPath + "\\Results"))
+        string resultsDir = Path.GetDirectoryName(ResultPath);
+        if (!Directory.Exists(resultsDir))
         {
-            Directory.CreateDirectory(Application.persistentDataPath + "\\Results");
-        }
-        if (!File.Exists(ResultPath))
-        {
-            fileStream = File.Create(ResultPath);
-
-        }
-        else
-        {
-            fileStream = new FileStream(ResultPath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
-            fileStream.SetLength(0);
-        }
-        Result[] rArray = new Result[SessionResults.Count];
-        int c = 0;
-        foreach (Result r in SessionResults)
-        {
-            rArray[c] = r;
-            ++c;
+            Directory.CreateDirectory(resultsDir);
         }
 
         StringBuilder sb = new StringBuilder();
         sb.Append("[");
         for (int i = 0; i < SessionResults.Count; ++i)
         {
-            if (i == SessionResults.Count - 1)
-            {
-                sb.Append(JsonUtility.ToJson(rArray[i]));
-                sb.Append("\n]");
-                break;
-            }
-            sb.Append(JsonUtility.ToJson(rArray[i]));
-            sb.Append("\n,\n");
+            sb.Append(JsonUtility.ToJson(SessionResults[i]));
+            sb.Append(i == SessionResults.Count - 1 ? "\n]" : "\n,\n");
         }
-        Debug.Log(sb.ToString());
-        byte[] info = new UTF8Encoding(true).GetBytes(sb.ToString());
-        fileStream.Write(info, 0, info.Length);
-        fileStream.Close();
+
+        string tempPath = ResultPath + ".tmp";
+        File.WriteAllText(tempPath, sb.ToString(), new UTF8Encoding(true));
+
+        if (File.Exists(ResultPath))
+            File.Replace(tempPath, ResultPath, null);
+        else
+            File.Move(tempPath, ResultPath);
+
+        PathConfig.MirrorToBackup(ResultPath, PathConfig.Instance.dataRoot);
+
         Debug.Log("Wrote session results to file");
     }
 
@@ -162,7 +145,6 @@ public class Result
     public string TimestampString { get => timestampString; set => timestampString = value; }
     public float SnrAtMaxDistance { get => snrAtMaxDistance; set => snrAtMaxDistance = value; }
 }
-
 
 [System.Serializable]
 public class SerializableDateTime : IComparable<SerializableDateTime>

@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using UnityEditor.Experimental.RestService;
 using UnityEngine;
 
 public sealed class SessionDataHandler : MonoBehaviour
@@ -40,27 +39,10 @@ public sealed class SessionDataHandler : MonoBehaviour
 
     public static void WriteResultsToFile()
     {
-        FileStream fileStream = null;
-        if (!Directory.Exists(Application.persistentDataPath + "\\SessionData"))
+        string sessionDir = Path.GetDirectoryName(SessionDataPath);
+        if (!Directory.Exists(sessionDir))
         {
-            Directory.CreateDirectory(Application.persistentDataPath + "\\SessionData");
-        }
-        if (!File.Exists(SessionDataPath))
-        {
-            fileStream = File.Create(SessionDataPath);
-
-        }
-        else
-        {
-            fileStream = new FileStream(SessionDataPath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
-            fileStream.SetLength(0);
-        }
-        PlayerData[] rArray = new PlayerData[PlayerDataEntries.Count];
-        int c = 0;
-        foreach (PlayerData r in PlayerDataEntries)
-        {
-            rArray[c] = r;
-            ++c;
+            Directory.CreateDirectory(sessionDir);
         }
 
         StringBuilder sb = new StringBuilder();
@@ -69,21 +51,21 @@ public sealed class SessionDataHandler : MonoBehaviour
         sb.Append(",\n[");
         for (int i = 0; i < PlayerDataEntries.Count; ++i)
         {
-            if (i == PlayerDataEntries.Count - 1)
-            {
-                sb.Append(JsonUtility.ToJson(rArray[i]));
-                sb.Append("\n]");
-                break;
-            }
-            sb.Append(JsonUtility.ToJson(rArray[i]));
-            sb.Append("\n,\n");
+            sb.Append(JsonUtility.ToJson(PlayerDataEntries[i]));
+            sb.Append(i == PlayerDataEntries.Count - 1 ? "\n]" : "\n,\n");
         }
         sb.Append("]");
 
-        Debug.Log(sb.ToString());
-        byte[] info = new UTF8Encoding(true).GetBytes(sb.ToString());
-        fileStream.Write(info, 0, info.Length);
-        fileStream.Close();
+        string tempPath = SessionDataPath + ".tmp";
+        File.WriteAllText(tempPath, sb.ToString(), new UTF8Encoding(true));
+
+        if (File.Exists(SessionDataPath))
+            File.Replace(tempPath, SessionDataPath, null);
+        else
+            File.Move(tempPath, SessionDataPath);
+
+        PathConfig.MirrorToBackup(SessionDataPath, PathConfig.Instance.dataRoot);
+
         Debug.Log("Wrote session data to file");
     }
 

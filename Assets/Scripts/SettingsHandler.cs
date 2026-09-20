@@ -8,9 +8,9 @@ using UnityEngine;
 
 public sealed class SettingsHandler
 {
-    private static string configuarationPath;
+    private static string configurationPath;
 
-    public static string ConfiguarationPath { get => configuarationPath; set => configuarationPath = value; }
+    public static string ConfigurationPath { get => configurationPath; set => configurationPath = value; }
 
     private static PlayerSettings playerSettings;
 
@@ -19,30 +19,30 @@ public sealed class SettingsHandler
 
     public static void WriteConfigToFile()
     {
-        FileStream fileStream = null;
-        if(!Directory.Exists(Application.persistentDataPath + "\\Configuration"))
+        string configDir = Path.GetDirectoryName(ConfigurationPath);
+        if (!Directory.Exists(configDir))
         {
-            Directory.CreateDirectory(Application.persistentDataPath + "\\Configuration");
+            Directory.CreateDirectory(configDir);
         }
-        if(!File.Exists(ConfiguarationPath))
-        {
-            fileStream = File.Create(ConfiguarationPath);
-        }
-        else
-        {
-            fileStream = new FileStream(ConfiguarationPath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
-            fileStream.SetLength(0);
-        }
+
         string jsonString = JsonUtility.ToJson(playerSettings);
-        byte[] info = new UTF8Encoding(true).GetBytes(jsonString);
-        fileStream.Write(info, 0, info.Length);
-        fileStream.Close();
+
+        string tempPath = ConfigurationPath + ".tmp";
+        File.WriteAllText(tempPath, jsonString, new UTF8Encoding(true));
+
+        if (File.Exists(ConfigurationPath))
+            File.Replace(tempPath, ConfigurationPath, null);
+        else
+            File.Move(tempPath, ConfigurationPath);
+
+        PathConfig.MirrorToBackup(ConfigurationPath, PathConfig.Instance.dataRoot);
+
         Debug.Log("Wrote player configuration to file");
     }
 
     public static void LoadSettingsFromFile()
     {
-        string jsonRaw = File.ReadAllText(ConfiguarationPath);
+        string jsonRaw = File.ReadAllText(ConfigurationPath);
         PlayerSettings = JsonUtility.FromJson<PlayerSettings>(jsonRaw);
         Debug.Log("Loaded player configuration from file. Current user: " + PlayerSettings.UserID + ", " + PlayerSettings.UserName);
     }

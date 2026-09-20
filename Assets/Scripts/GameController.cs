@@ -5,12 +5,10 @@ using System.IO;
 using TMPro;
 using Unity.VisualScripting;
 using Unity.XR.CoreUtils;
-using UnityEditor.XR.LegacyInputHelpers;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UIElements;
 using UnityEngine.XR.Interaction.Toolkit;
-using static UnityEditor.PlayerSettings;
 
 public class GameController : MonoBehaviour
 {
@@ -55,7 +53,7 @@ public class GameController : MonoBehaviour
     private float repeatRate;
     IEnumerator rateLoop;
     IEnumerator constantLoop;
-    public short participant_id;
+    private short participant_id;
     public int numberOfRounds;
     public int numberOfConsideredTrials; //Number or previous results that are considered take the avg. distance of to decide whether SNR should be lowered or increased
     public float movementSpeed;
@@ -74,20 +72,36 @@ public class GameController : MonoBehaviour
     void Start()
     {
         gridSizeFactor = 4;
-        ResultsHandler.ResultPath = Application.persistentDataPath + "\\Results\\" + participant_id + "_results.json";
-        SettingsHandler.ConfiguarationPath = Application.persistentDataPath + "\\Configuration\\" + participant_id + "_configuration.json";
-        LoadConfiguration();
-        LoadPreviousResults();
-        SessionDataHandler.SessionDataPath = BuildSessionDataPath();
 
-        InitSessionData(SettingsHandler.PlayerSettings.UserID, attemptNumber);
         mainCamera = GameObject.FindGameObjectWithTag("MainCamera");
         //UI init
         resultText = GameObject.FindGameObjectWithTag("ResultText").GetComponent<TextMeshProUGUI>();
         infoText = GameObject.FindGameObjectWithTag("InfoText").GetComponent<TextMeshProUGUI>();
         startButton = GameObject.FindGameObjectWithTag("StartButton");
-        AdjustToPlayerPosition(0, 10.0f, 2.0f);
 
+        participant_id = ParticipantSession.ParticipantId;
+        ResultsHandler.ResultPath = Path.Combine(PathConfig.Instance.dataRoot, "Results", participant_id + "_results.json");
+        SettingsHandler.ConfigurationPath = Path.Combine(PathConfig.Instance.dataRoot, "Configuration", participant_id + "_configuration.json");
+
+        if (!LoadConfiguration())
+        {
+            // No configuration exists for this participant ID. Do NOT silently invent one -
+            // this is exactly the "wrong/forgotten participant ID" failure mode we're guarding against.
+            string message = "No configuration found for participant " + participant_id + ".\nPlease run Setup for this participant first, or check the participant ID.";
+            Debug.LogError(message + " (expected file: " + SettingsHandler.ConfigurationPath + ")");
+            infoText.text = message;
+            startButton.SetActive(false);
+            numberOfRounds = 0; // belt-and-suspenders: StartHandler() already no-ops when this is 0
+            return;
+        }
+
+        LoadPreviousResults();
+        int completedRounds = attemptNumber - 1; // attemptNumber points at the round about to be played
+        numberOfRounds = Math.Max(0, numberOfRounds - completedRounds);
+        SessionDataHandler.SessionDataPath = BuildSessionDataPath();
+
+        InitSessionData(SettingsHandler.PlayerSettings.UserID, attemptNumber);
+        AdjustToPlayerPosition(0, 10.0f, 2.0f);
 
         //Player and target init.
         Vector2 playerPos, targetPos;
@@ -95,10 +109,8 @@ public class GameController : MonoBehaviour
         singleTarget = new SingleTarget(targetPos);
         singleTargetGameObject.transform.position = new Vector3(targetPos.x, mainCamera.transform.position.y, targetPos.y);
 
-
-        float sideLengthMeter = gamePlane.transform.localScale.x; //Length of the square game plane in meters
-        int gridSize = (int)(gridSizeFactor * sideLengthMeter); //Size of GameGrid Array
-        //Create internal position grid and place the player as well as the target; mainly necessary for polygon game variant
+        float sideLengthMeter = gamePlane.transform.localScale.x;
+        int gridSize = (int)(gridSizeFactor * sideLengthMeter);
         Grid = new GameGrid(gridSize, gridSize, sideLengthMeter / gridSize, new Vector3(gridSize / 2, 0, gridSize / 2), GetVector2Position(player.transform.position), singleTarget);
 
         if (debugMode)
@@ -116,34 +128,34 @@ public class GameController : MonoBehaviour
         List<AudioClip> distClips = distractorAudioClips.GetComponent<DistractorAudioFiles>().distractorClipList;
         StimulusController = new StimulusController(player, Grid, sideLengthMeter, StimulusController.Mode.SingleTarget, new DistanceCalculator(), singleTargetGameObject.GetComponent<AudioSource>(), distractorGameObject.GetComponent<AudioSource>(), audioMixer, distClips);
 
-        //Read SNR values from config (not from editor) 
         StimulusController.Close_SNR = SettingsHandler.PlayerSettings.CloseSNR;
         StimulusController.Far_SNR = SettingsHandler.PlayerSettings.FarSNR;
         StimulusController.InitialDistractorDb = SettingsHandler.PlayerSettings.InitialDistractorDb;
 
-        /**
-        //Debug: Read SNR values from editor rather than config file
-        StimulusController.Close_SNR = SNRAttarget;
-        StimulusController.Far_SNR = SNRAtMaxDistance;
-        StimulusController.InitialDistractorDb = initialDistractorDb;
-        **/
         distanceCalculator = new DistanceCalculator();
-
     }
 
     private string BuildSessionDataPath()
     {
-        return Application.persistentDataPath + "\\SessionData\\" + SettingsHandler.PlayerSettings.UserID + "\\" + attemptNumber + ".json";
+        return Path.Combine(PathConfig.Instance.dataRoot, "SessionData", SettingsHandler.PlayerSettings.UserID.ToString(), attemptNumber + ".json");
     }
 
-    private void LoadConfiguration()
+    private bool LoadConfiguration()
     {
-        if (!File.Exists(SettingsHandler.ConfiguarationPath))
+        if (!File.Exists(SettingsHandler.ConfigurationPath))
         {
-            PlayerSettings settings = new PlayerSettings(100, "test", 0, SNRAttarget, SNRAtMaxDistance, initialDistractorDb);
-            SettingsHandler.PlayerSettings = settings;
-            SettingsHandler.WriteConfigToFile();
-            Debug.Log("Player settings file does not exist. Creating new settings file.");
+            if (debugMode)
+            {
+                PlayerSettings settings = new PlayerSettings(100, "test", 0, SNRAttarget, SNRAtMaxDistance, initialDistractorDb);
+                SettingsHandler.PlayerSettings = settings;
+                SettingsHandler.WriteConfigToFile();
+                Debug.Log("Player settings file does not exist. Creating placeholder settings file (debug mode only).");
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
         else
         {
@@ -152,14 +164,16 @@ public class GameController : MonoBehaviour
             attemptNumber = SettingsHandler.PlayerSettings.CompletedRounds;
             SNRAttarget = SettingsHandler.PlayerSettings.CloseSNR;
             SNRAtMaxDistance = SettingsHandler.PlayerSettings.FarSNR;
+            return true;
         }
     }
 
     private void LoadPreviousResults()
     {
-        if (!Directory.Exists(Application.persistentDataPath + "\\Results"))
+        string resultsDir = Path.Combine(PathConfig.Instance.dataRoot, "Results");
+        if (!Directory.Exists(resultsDir))
         {
-            Directory.CreateDirectory(Application.persistentDataPath + "\\Results");
+            Directory.CreateDirectory(resultsDir);
         }
         if (File.Exists(ResultsHandler.ResultPath))
         {
@@ -173,15 +187,14 @@ public class GameController : MonoBehaviour
             resultsFromFile = ResultsHandler.SessionResults;
             Debug.Log("Result file does not exist. Creating initial file after training");
         }
-
     }
 
     private void InitSessionData(int participant_id, int attemptNo)
     {
-        if (!Directory.Exists(Application.persistentDataPath + "\\SessionData\\" + participant_id + "\\"))
+        string sessionDir = Path.Combine(PathConfig.Instance.dataRoot, "SessionData", participant_id.ToString());
+        if (!Directory.Exists(sessionDir))
         {
-            Directory.CreateDirectory(Application.persistentDataPath + "\\SessionData\\" + participant_id + "\\");
-
+            Directory.CreateDirectory(sessionDir);
         }
         playerData = new List<PlayerData>();
     }
@@ -346,20 +359,17 @@ public class GameController : MonoBehaviour
                         //Player was between 1 and 3m to the target on avg. SNR is increased by 2db unless it would be louder than the babble (0dB SNR)
                         else if (avgDist > 1 && avgDist < 3)
                         {
-                            
-
-                            if (!(StimulusController.Close_SNR + 2 > initialDistractorDb))
+                            if (!(StimulusController.Close_SNR + 2 > 0))
                             {
                                 StimulusController.Close_SNR += 2;
                                 SettingsHandler.PlayerSettings.CloseSNR = StimulusController.Close_SNR;
-                                Debug.Log("Average distance over the last " + numberOfConsideredTrials + ": " + avgDist + ".\n Increasing SNR by 2db");
                             }
                             else
                             {
                                 StimulusController.Close_SNR = 0;
                                 SettingsHandler.PlayerSettings.CloseSNR = StimulusController.Close_SNR;
                             }
-                            if (!(StimulusController.Far_SNR + 2 > initialDistractorDb))
+                            if (!(StimulusController.Far_SNR + 2 > 0))
                             {
                                 StimulusController.Far_SNR += 2;
                                 SettingsHandler.PlayerSettings.FarSNR = StimulusController.Far_SNR;
@@ -371,21 +381,19 @@ public class GameController : MonoBehaviour
                             }
                         }
                         //Player was more than 3m away on avg. SNR is increased by 4db
-                        else
+                        else // avgDist >= 3
                         {
-
-                            if (!(StimulusController.Close_SNR + 4 > initialDistractorDb))
+                            if (!(StimulusController.Close_SNR + 4 > 0))
                             {
                                 StimulusController.Close_SNR += 4;
                                 SettingsHandler.PlayerSettings.CloseSNR = StimulusController.Close_SNR;
-                                Debug.Log("Average distance over the last " + numberOfConsideredTrials + ": " + avgDist + ".\n Increasing SNR by 4db");
                             }
                             else
                             {
                                 StimulusController.Close_SNR = 0;
                                 SettingsHandler.PlayerSettings.CloseSNR = StimulusController.Close_SNR;
                             }
-                            if (!(StimulusController.Far_SNR + 4 > initialDistractorDb))
+                            if (!(StimulusController.Far_SNR + 4 > 0))
                             {
                                 StimulusController.Far_SNR += 4;
                                 SettingsHandler.PlayerSettings.FarSNR = StimulusController.Far_SNR;
@@ -397,6 +405,11 @@ public class GameController : MonoBehaviour
                             }
                         }
                     }
+                    // Persist after every round, not just at the end of training.
+                    SettingsHandler.PlayerSettings.CompletedRounds = attemptNumber;
+                    ResultsHandler.WriteResultsToFile();
+                    SettingsHandler.WriteConfigToFile();
+
                     SessionDataHandler.PlayerDataEntries = playerData;
                     SessionDataHandler.WriteResultsToFile();
                     attemptNumber++;
@@ -410,9 +423,6 @@ public class GameController : MonoBehaviour
                         singleTargetGameObject.GetComponent<MeshRenderer>().enabled = true;
                         resultText.text = "Time needed: " + t.ToString("n2") + "seconds<br>Distance from target: " + distance.ToString("n2") + "m";
                         infoText.text = "Training concluded.";
-                        ResultsHandler.WriteResultsToFile();
-                        SettingsHandler.WriteConfigToFile();
-                        SessionDataHandler.WriteResultsToFile();
                     }
                 }
 
