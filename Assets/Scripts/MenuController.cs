@@ -8,6 +8,8 @@ public class MenuController : MonoBehaviour
     [SerializeField] private TextMeshProUGUI messageText;
     [SerializeField] private GameObject confirmButton;
     [SerializeField] private GameObject cancelButton;
+    [SerializeField] private GameObject newParticipantButton;
+    [SerializeField] private GameObject startTrainingButton;
 
     private enum PendingAction { None, CreateNew, StartExisting }
     private PendingAction pendingAction = PendingAction.None;
@@ -67,7 +69,7 @@ public class MenuController : MonoBehaviour
         ParticipantSession.ParticipantId = pendingId;
         if (pendingAction == PendingAction.CreateNew)
         {
-            SceneManager.LoadScene("Setup");
+            SceneManager.LoadScene("LevelSetup");
         }
         else if (pendingAction == PendingAction.StartExisting)
         {
@@ -87,5 +89,7 @@ public class MenuController : MonoBehaviour
     {
         confirmButton.SetActive(show);
         cancelButton.SetActive(show);
+        newParticipantButton.SetActive(!show);
+        startTrainingButton.SetActive(!show);
     }
 }

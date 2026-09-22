@@ -83,7 +83,6 @@ public class StimulusController
         this.mixer = mixer;
         this.distractorAudioClips = distClips;
         SetScale();
-        SetModePrefixAndParam();
         SetChannelLevel(2, -5);
 
     }
