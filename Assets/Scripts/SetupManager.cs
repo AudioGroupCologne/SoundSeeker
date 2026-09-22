@@ -2,7 +2,6 @@ using API_3DTI;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using TMPro; 
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.SceneManagement;
@@ -22,7 +21,6 @@ public class SetupManager : MonoBehaviour
     private float currentTargetDb;
     private float dbStep = 2;
 
-    [SerializeField] private TextMeshPro experimenterText;   // new field alongside the existing public ones
 
     // Start is called before the first frame update
     void Start()
@@ -41,7 +39,6 @@ public class SetupManager : MonoBehaviour
             throw new System.Exception("Config file already exists. Make sure that participant ID has not been used yet.");
         }
         SettingsHandler.PlayerSettings = settings;
-        UpdateExperimenterText();
     }
 
     // Update is called once per frame
@@ -54,7 +51,6 @@ public class SetupManager : MonoBehaviour
                 SetChannelLevel(1, currentTargetDb + dbStep);
                 currentTargetDb += dbStep;
                 Debug.Log("Target DB increased by " + dbStep + "dB. SNR at " + (currentTargetDb - initialDistractorDb) + "dB");
-                UpdateExperimenterText();
             }
             else
             {
@@ -69,7 +65,6 @@ public class SetupManager : MonoBehaviour
             SetChannelLevel(1, currentTargetDb - dbStep);
             currentTargetDb -= dbStep;
             Debug.Log("Target DB lowered by " + dbStep + "dB. SNR at " + (currentTargetDb - initialDistractorDb) + "dB");
-            UpdateExperimenterText();
 
 
         }
@@ -88,7 +83,7 @@ public class SetupManager : MonoBehaviour
             }
             else
             {
-                SettingsHandler.PlayerSettings.FarSNR = currentTargetDb + 20;
+                SettingsHandler.PlayerSettings.FarSNR = newTargetDB + 20;
             }
             SettingsHandler.WriteConfigToFile();
             SceneManager.LoadScene("Menu");
@@ -137,20 +132,6 @@ public class SetupManager : MonoBehaviour
 
         // write updated volume level to 'AudioMixer'
         mixer.SetFloat(channel, level_db);
-    }
-
-    private void UpdateExperimenterText()
-    {
-        if (experimenterText == null) return;
-
-        experimenterText.text =
-            "Controls:\n" +
-            "[1] Increase target volume\n" +
-            "[2] Decrease target volume\n" +
-            "[Space] Confirm & save\n\n" +
-            "Target level: " + currentTargetDb.ToString("F1") + " dB\n" +
-            "Distractor level: " + initialDistractorDb.ToString("F1") + " dB\n" +
-            "SNR (target - distractor): " + (currentTargetDb - initialDistractorDb).ToString("F1") + " dB";
     }
 
 }
