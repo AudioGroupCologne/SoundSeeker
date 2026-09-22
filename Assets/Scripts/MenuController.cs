@@ -57,9 +57,17 @@ public class MenuController : MonoBehaviour
 
         pendingId = id;
         pendingAction = PendingAction.StartExisting;
-        messageText.text = remaining == ParticipantSession.RequiredRoundsPerSession
-            ? "Run training for participant " + id + " - starting a fresh session (" + remaining + " rounds)."
-            : "Run training for participant " + id + " - continuing with " + remaining + " rounds remaining.";
+
+        int completed = ParticipantSession.TotalRoundsRequired - remaining;
+        int sessionNumber = completed / ParticipantSession.RoundsPerSession + 1;
+        int completedInSession = completed % ParticipantSession.RoundsPerSession;
+        int roundsRemainingInSession = completedInSession == 0
+            ? ParticipantSession.RoundsPerSession
+            : ParticipantSession.RoundsPerSession - completedInSession;
+
+        messageText.text = completedInSession == 0
+            ? "Run training for participant " + id + " - starting session " + sessionNumber + " of " + ParticipantSession.SessionsRequired + " (" + roundsRemainingInSession + " rounds)."
+            : "Run training for participant " + id + " - continuing with " + roundsRemainingInSession + " rounds remaining in session " + sessionNumber + " of " + ParticipantSession.SessionsRequired + ".";
         ShowConfirm(true);
     }
 

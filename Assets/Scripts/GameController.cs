@@ -85,19 +85,19 @@ public class GameController : MonoBehaviour
 
         if (!LoadConfiguration())
         {
-            // No configuration exists for this participant ID. Do NOT silently invent one -
-            // this is exactly the "wrong/forgotten participant ID" failure mode we're guarding against.
+            // No configuration exists for this participant ID
             string message = "No configuration found for participant " + participant_id + ".\nPlease run Setup for this participant first, or check the participant ID.";
             Debug.LogError(message + " (expected file: " + SettingsHandler.ConfigurationPath + ")");
             infoText.text = message;
             startButton.SetActive(false);
-            numberOfRounds = 0; // belt-and-suspenders: StartHandler() already no-ops when this is 0
+            numberOfRounds = 0;
             return;
         }
 
         LoadPreviousResults();
         int completedRounds = attemptNumber - 1; // attemptNumber points at the round about to be played
-        numberOfRounds = Math.Max(0, numberOfRounds - completedRounds);
+        int completedInSession = completedRounds % ParticipantSession.RoundsPerSession;
+        numberOfRounds = ParticipantSession.RoundsPerSession - completedInSession;
         SessionDataHandler.SessionDataPath = BuildSessionDataPath();
 
         InitSessionData(SettingsHandler.PlayerSettings.UserID, attemptNumber);

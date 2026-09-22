@@ -41,7 +41,7 @@ public static class ParticipantLookup
         return (short)(maxId + 1);
     }
 
-    // Returns rounds remaining for this participant (0..RequiredRoundsPerSession),
+    // Returns rounds remaining for this participant (0..TotalRoundsRequired),
     // or -1 if no configuration exists for this ID at all.
     public static int GetRemainingRounds(short participantId)
     {
@@ -53,6 +53,6 @@ public static class ParticipantLookup
         SettingsHandler.ConfigurationPath = ConfigPathFor(participantId);
         SettingsHandler.LoadSettingsFromFile();
         int completed = SettingsHandler.PlayerSettings.CompletedRounds;
-        return System.Math.Max(0, ParticipantSession.RequiredRoundsPerSession - completed);
+        return System.Math.Max(0, ParticipantSession.TotalRoundsRequired - completed);
     }
 }
